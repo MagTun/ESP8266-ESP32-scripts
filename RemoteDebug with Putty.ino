@@ -1,4 +1,8 @@
 /*
+
+the RemoteDebug is a library that create a telnet connection
+then we need to read this connection : on windows, we use Putty to do that.
+
  * RemoteDebug for ESP8266 - NodeMCU
  * 
  * How to use on Windows 10
@@ -22,82 +26,106 @@
  *    you can save this configuration by click on "Save"
  *    then click Open
  * 6) Miscellinous
- *    the debug level are errors  (show only errors), warning (show only errors and warning), info (show only errors, warning and info), debug (show debug + the 3 previous level ― everything without verbose), verbose (show everything)
+ *    the debug level are :
+ *          ● errors  (show only errors), 
+ *          ● warning (show only errors and warning), 
+ *          ● info (show only errors, warning and info),
+ *          ● debug (show debug + the 3 previous level ― everything without verbose), 
+ *          ● verbose (show everything)
  *    Changing Debug level in Putty : by defaut the level is Debug, you can change the level in Putty by pressing V(for verbose), D(for debug)... 
  *    
+ * if after 30 sec you don't see anything in putty, right-click the header and select "restart session"
  * 
  * 
  * 
  * 
- */ 
+ */
 
-// for Wifi 
+// for Wifi
 #include <ESP8266WiFi.h>
 
 // for mDNS
 #include <DNSServer.h>
 #include <ESP8266mDNS.h>
 
-
 // Remote debug over telnet - not recommended for production, only for development
-#include "RemoteDebug.h"  
+#include "RemoteDebug.h"
 
 RemoteDebug Debug;
 
 // SSID and password
-const char* ssid = "xxxxx";
-const char* password = "xxxxx";
+const char *ssid = "xxxxxx";
+const char *password = "xxxxxx";
 
 // Host mDNS
 
 #define HOST_NAME "remotedebug"
 
+void setup()
+{
+  // Enable serial
+  Serial.begin(115200);
 
-void setup() {
-    // Enable serial
-    Serial.begin(115200);
-    
-    // get Serial.print in serial monitor nn
-    setup_wifi();   
-    setup_remoteDebug();  
+  // get Serial.print in serial monitor nn
+  setup_wifi();
+  setup_remoteDebug();
 }
 
 void loop()
 {
-  // simple debug  : other level are rdebugIln() , rdebugWln()  , rdebugEln() ,  rdebugA
-  rdebugDln("This will print your text"); 
-  rdebugVln("To see verbose message in Putty, you should set the level debug to verbose by pressing V");  
+  // # ------------------------------------------------------ ¤¤ general syntax :
+  // debugD = simple debug  (default in putty)
+  // other level are rdebugI() , rdebugW()  , rdebugE() , rdebugA(), rdebugV()
+  //  ○   rdebugDln  = add a newline after print
+  //  ○   debugD  : next debug will continue on same line
 
-  //debug with variable: the flag %.... will be replaced by the var  : 
+  // # ------------------------------------------------------ ¤¤ print a hard coded string
+  rdebugDln("This will print your text");
+  rdebugVln("To see verbose message in Putty, you should set the level debug to verbose by pressing V");
+
+  //# ------------------------------------------------------ ¤¤  debug with variable:
+  // you need to use a flag %.... that act as a placeholder for you var  :
   //for the right flag see https://en.wikipedia.org/wiki/Printf_format_string#Type_field
   //if you don't declare the right flag, Putty will either write something weird or "freeze" for 10sec when attempting to connect and then you will get " Network error: Connection timed out "
 
-  const char*  char_var = "sample var";
-  rdebugDln("This will print the char_var: %s", char_var); //%s = will replace by variable
-  rdebugDln("Declare ssid at the begining of the script: %s", ssid); //%s = ssid was declared as char* 
+  // # ...................................... ¤¤¤ print a string /char
+  const char *char_var = "sample var";
+  rdebugDln("This will print the char_var: %s", char_var);                         //%s = will replace by variable
+  rdebugDln("%s : this is you ssid . ", ssid);                                     //%s = ssid was declared as char at the top of the script
   rdebugDln("If use the wrong flag, putty print a weird char_var : %c", char_var); //%c = will replace by variable  ―― putty doesn't freeze but print a weird output
 
-  bool boolean_var =true;
+  // # ...................................... ¤¤¤boolean var
+  bool boolean_var = true;
   rdebugDln("This will print your var: %d", boolean_var); //
 
+  // # ...................................... ¤¤¤ int var
   int int_var = 5;
   rdebugDln("This will print your var: %d", int_var); //
   rdebugDln("This will print your var: %u", int_var); // doesn't seems to be a problem
 
+  // # ...................................... ¤¤¤ float
+  float float_var = 15, 55;
+  rdebugDln("This will print your var: %f", float_var);
+  // # .... *  BUT flag %f  doesn't work on esp826for so we need to convert float to int or to string
+  int int_from_float_var = int(float_var);
+  rdebugDln("This will print your var: %d", int_var); //
+  // not working
+  // mystring = String(float_var);
+  // rdebugDln("This will print your var: %s", mystring); //
 
+  // # ------------------------------------------------------ ¤¤ see Serial.print in putty
   // Should work with serial.println if enable in setup_remoteDebug() (cf. Debug.setSerialEnabled(true) ), but couldn't make it appear in Putty
-   Serial.println("This is a Serial.print()"); // couldn't make it work
+  Serial.println("This is a Serial.print()"); // couldn't make it work
 
-  // Send the rebug to Putty 
+  // Send the rebug to Putty
   Debug.handle();
   delay(5000);
   // Wait before running the next loop for the background tasks to finish (eg: wifi)
   yield();
-
 }
 
-
-void setup_wifi() {
+void setup_wifi()
+{
   delay(10);
   Serial.println();
   Serial.print("Connecting to ");
@@ -105,7 +133,8 @@ void setup_wifi() {
 
   WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(500);
     Serial.print(".");
   }
@@ -116,38 +145,37 @@ void setup_wifi() {
   Serial.print(WiFi.localIP());
 }
 
-void setup_remoteDebug() {
-    // Register host name in WiFi and mDNS
-    String hostNameWifi = HOST_NAME;
-    hostNameWifi.concat(".local");
-    WiFi.hostname(hostNameWifi);
+void setup_remoteDebug()
+{
+  // Register host name in WiFi and mDNS
+  String hostNameWifi = HOST_NAME;
+  hostNameWifi.concat(".local");
+  WiFi.hostname(hostNameWifi);
 
+  // start mDNS
+  if (MDNS.begin(HOST_NAME))
+  {
+    Serial.print("* MDNS responder started. Hostname -> ");
+    Serial.println(HOST_NAME);
+  }
 
-    // start mDNS
-    if (MDNS.begin(HOST_NAME)) {
-        Serial.print("* MDNS responder started. Hostname -> ");
-        Serial.println(HOST_NAME);
-    }
+  MDNS.addService("telnet", "tcp", 23);
 
-    MDNS.addService("telnet", "tcp", 23);
+  // Initialize the telnet server of RemoteDebug
+  Debug.setSerialEnabled(true); // If we want Serial.print() in Putty
 
+  Debug.begin(HOST_NAME); // Initiaze the telnet server
 
-    // Initialize the telnet server of RemoteDebug
-    Debug.setSerialEnabled(true); // If we want Serial.print() in Putty
+  Debug.setResetCmdEnabled(true); // Enable the reset command
 
-    Debug.begin(HOST_NAME); // Initiaze the telnet server
+  //Debug.showTime(true); // To show time
 
-    Debug.setResetCmdEnabled(true); // Enable the reset command
+  // Debug.showProfiler(true); // To show profiler - time between messages of Debug
+  // Good to "begin ...." and "end ...." messages
 
-    //Debug.showTime(true); // To show time
-
-    // Debug.showProfiler(true); // To show profiler - time between messages of Debug
-                              // Good to "begin ...." and "end ...." messages
-
-    // This sample (serial -> educattional use only, not need in production)
-    Serial.println("* Arduino RemoteDebug Library");
-    Serial.println("*");
-    Serial.print("* WiFI connected. IP address: ");
-    Serial.println(WiFi.localIP());
+  // This sample (serial -> educattional use only, not need in production)
+  Serial.println("* Arduino RemoteDebug Library");
+  Serial.println("*");
+  Serial.print("* WiFI connected. IP address: ");
+  Serial.println(WiFi.localIP());
 }
-
